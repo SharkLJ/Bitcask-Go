@@ -16,7 +16,8 @@ type BTree struct {
 // NewBTree 初始化一个BTree对象
 func NewBTree() *BTree {
 	return &BTree{
-		tree: btree.New(32), //这里的degree指的是BTree的度，也就是每个节点最多有多少个子节点
+		//这里的degree指的是BTree的度，也就是每个节点最多有多少个子节点
+		tree: btree.New(32),
 		//lock: &sync.RWMutex{},
 		lock: new(sync.RWMutex),
 	}
@@ -26,7 +27,7 @@ func (bt *BTree) Put(key []byte, pos *data.LogRecordPos) bool {
 	it := &Item{key: key, pos: pos}
 	bt.lock.Lock()
 	bt.tree.ReplaceOrInsert(it)
-	bt.lock.Unlock()
+	defer bt.lock.Unlock()
 	return true
 }
 
@@ -34,17 +35,19 @@ func (bt *BTree) Get(key []byte) *data.LogRecordPos {
 	it := &Item{key: key}
 	bt.lock.RLock()
 	value := bt.tree.Get(it)
+	bt.lock.RUnlock()
 	if value == nil {
 		return nil
 	}
-	bt.lock.RUnlock()
 	return value.(*Item).pos
 }
 
 func (bt *BTree) Delete(key []byte) bool {
 	it := &Item{key: key}
+	bt.lock.Lock()
 	//会返回被删除的值，如果btree中没有这个值，则返回nil
 	oldItem := bt.tree.Delete(it)
+	bt.lock.Unlock()
 	if oldItem == nil {
 		return false
 	}
